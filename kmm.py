@@ -51,7 +51,7 @@ class TimePeriod:
             self.end = end
 
     def periodExpires(self):
-        return end != -1
+        return self.end != -1
 
     def isActive(self, d1=None):
         if d1 == None:
