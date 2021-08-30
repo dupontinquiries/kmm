@@ -1,4 +1,5 @@
 import datetime
+import json
 
 
 class CommandInterpreter:
@@ -15,7 +16,6 @@ class FileLoader:
 
     def load(fName, type='json'):
         if type == 'json':
-            import json
             return json.load(fName)
 
 
