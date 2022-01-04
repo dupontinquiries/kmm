@@ -103,7 +103,7 @@ class Amount:
                 self.a += i
             except:
                 raise ValueError(f'Failed to add unknown type {type(i)} to an amount of type {self.t}')
-        self.check()
+        # self.check()
         return self
 
     def __sub__(self, i):
@@ -114,7 +114,7 @@ class Amount:
                 self.a -= i
             except:
                 raise ValueError(f'Failed to subtract unknown type {type(i)} from an amount of type {self.t}')
-        self.check()
+        # self.check()
         return self
 
     def __eq__(self, o):
@@ -253,13 +253,27 @@ class TimePeriod:
         return self.end
 
 
-class MonthlyIncome:
-    def __init__(self, amount, e=Entity(), p=TimePeriod()):
+###
+# Periodic Incomes can be used to project into the future
+## amount
+## the sender
+## the active period (will pay as long as within this period)
+## the period between deposits (not smooth)
+###
+class PeriodicIncome:
+    def __init__(self, a, e=None, ap=None, p=None):
+        self.amount = a  # income every month
+        self.entity = e
+        self.activePeriod = ap
         self.period = p
-        self.amount = amount  # income every month
 
     def isActive(self, d1=None):
         return self.time.isActive(d1)
+
+
+class MonthlyIncome(PeriodicIncome):
+    def __init__(self, a, e=None, ap=None):
+        PeriodicIncome.__init__(self, a, e, ap, pendulum.duration(months=1))
 
 
 class Expense:
@@ -302,6 +316,36 @@ class SavingAccount:
 
     def getBalance(self):
         return self.balance
+
+
+class ProjectableAccount:
+    def __init__(self, acc=None):
+        if acc is None:
+            self.account = SavingAccount()
+        else:
+            self.account = acc
+        self.pbal = self.account.getBalance()
+        self.projections = []
+
+    def getBalance(self):
+        return self.pbal
+
+    def addIncome(self, pi):
+        self.projections.append(pi)
+
+    def project(self, t):
+        for p in self.projections:
+            # for each projection, iterate until hit end
+            if issubclass(type(p), PeriodicIncome):
+                period = p.period
+                activePeriod = p.activePeriod
+                amount = p.amount
+                t = pendulum.today()
+                while t < activePeriod.getEnd():
+                    t += period
+                    self.pbal += p.amount
+        self.account.balance = self.pbal
+        return self
 
 
 if __name__ == "__main__":
@@ -421,14 +465,45 @@ if __name__ == "__main__":
     ###
     #
 
-    exit()
-
     current_test = "buying an item using a savings account"
     print(f"testing [{current_test}]")
     acc1 = SavingAccount('USD')
-    acc2 = SavingAccount(4500, 'USD')
-    assert acc1.getBal() == 0
-    assert acc2.getBal() < 5000
+    acc2 = SavingAccount('USD', 4500)
+    assert acc1.getBalance() == 0
+    assert acc2.getBalance() < 5000
+    assert acc2.getBalance() < Amount(10000.70, 'USD')
+    acc1.deposit(450)
+    assert acc1.getBalance() == 450
+    assert acc2.getBalance() - acc1.getBalance() > 0
     print(f"finished testing [{current_test}]\n")
+
+    #
+    ###
+    #
+
+    current_test = "saving account projections"
+    print(f"testing [{current_test}]")
+    acc1 = SavingAccount('USD')
+    acc2 = SavingAccount('USD', 4500)
+    i1 = MonthlyIncome(Amount('USD', 1200))
+    i2 = MonthlyIncome(Amount('USD', 1750.50))
+    assert acc1.getBalance() == 0
+    print(f"finished testing [{current_test}]\n")
+
+    #
+    ###
+    #
+
+    current_test = "saving account projections (advanced)"
+    print(f"testing [{current_test}]")
+    acc1 = ProjectableAccount(SavingAccount('USD'))
+    acc2 = ProjectableAccount(SavingAccount('USD', 4500))
+    i3 = MonthlyIncome(Amount('USD', 600), None, TimePeriod(pendulum.today(), pendulum.today().add(months=1)))
+    acc1.addIncome(i1)
+    # val = acc1.project(pendulum.today().add(months=1)).getBalance() == 600
+    assert acc1.project(pendulum.today().add(months=1)).getBalance() == 600
+    print(f"finished testing [{current_test}]\n")
+
+
     # l = TransactionLogger()
     # l.export('log.json')
