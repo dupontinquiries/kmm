@@ -1,6 +1,7 @@
 import datetime
 import json
 import pendulum
+import copy
 
 class TransactionLogger:
     def __init__(self):
@@ -82,7 +83,7 @@ class Amount:
         self.a = a
         self.t = t
 
-    def amount(self):
+    def getAmount(self):
         return self.a
 
     def currency(self):
@@ -90,6 +91,10 @@ class Amount:
 
     def __repr__(self):
         return (f'[{self.t}] {self.a}')
+        # return self.a
+
+    # def __str__(self):
+    #     return (f'[{self.t}] {self.a}')
 
     def check(self):
         if self.a < 0:
@@ -233,6 +238,9 @@ class TimePeriod:
         # else:
         #     self.end = end
 
+    def forever(self):
+        return self.end is None
+
     def periodExpires(self):
         return self.end is not None
 
@@ -262,10 +270,23 @@ class TimePeriod:
 ###
 class PeriodicIncome:
     def __init__(self, a, e=None, ap=None, p=None):
-        self.amount = a  # income every month
+        if issubclass(type(a), Amount):
+            self.amount = a.getAmount()
+            self.t = a.currency()
+        else:
+            self.amount = a  # income every month
         self.entity = e
         self.activePeriod = ap
         self.period = p
+
+    def getAmount(self):
+        return Amount(self.amount, self.t)
+
+    def forever(self):
+        return self.activePeriod.forever()
+
+    def getCurrency(self):
+        return self.t
 
     def isActive(self, d1=None):
         return self.time.isActive(d1)
@@ -299,53 +320,86 @@ class MonthlyExpense:
         self.period = p
 
 class SavingAccount:
-    def __init__(self, t='USD', ib=None):
+    def __init__(self, ib = 0, t='USD'):
         self.t = t
+        self.balance = dict()
         if ib is None:
-            self.balance = Amount(0, t)
+            self.balance[t] = 0
         elif issubclass(type(ib), Amount):
-            self.balance = ib
+            self.balance[t] = ib.getAmount()
         else:
-            self.balance = Amount(ib, t)
+            self.balance[t] = ib
 
     def __repr__(self):
         return self.balance
 
-    def deposit(self, i):
-        self.balance += i
+    def getCurrency(self):
+        return self.t
 
-    def getBalance(self):
-        return self.balance
+    def deposit(self, i, k=None):
+        if k is None:
+            k = self.t
+        self.balance[k] += i
+
+    def getBalance(self, k=None):
+        if k is None:
+            return self.balance
+        return self.balance[k]
 
 
 class ProjectableAccount:
     def __init__(self, acc=None):
         if acc is None:
             self.account = SavingAccount()
+            # self.account = copy.deepcopy(SavingAccount())
         else:
             self.account = acc
-        self.pbal = self.account.getBalance()
+        # self.pbal = dict()
+        self.pbal = copy.deepcopy(self.account.balance)
         self.projections = []
 
-    def getBalance(self):
-        return self.pbal
+    def getBalance(self, k=None):
+        if k is None:
+            return self.account.balance
+        return self.account.balance[k]
+
+    def getProjectedBalance(self, k=None):
+        if k is None:
+            return self.pbal
+        if k not in self.pbal:
+            self.pbal[k] = 0
+        return self.pbal[k]
 
     def addIncome(self, pi):
         self.projections.append(pi)
 
-    def project(self, t):
+    def project(self, et): # endtime
+        self.pbal = dict()
+        self.pbal = copy.deepcopy(self.getBalance())
         for p in self.projections:
             # for each projection, iterate until hit end
             if issubclass(type(p), PeriodicIncome):
-                period = p.period
-                activePeriod = p.activePeriod
-                amount = p.amount
                 t = pendulum.today()
-                while t < activePeriod.getEnd():
-                    t += period
-                    self.pbal += p.amount
-        self.account.balance = self.pbal
+                # print(self.pbal)
+                # for ob in self.pbal.items():
+                #     print(ob)
+                while (p.forever() and t < et) or (not p.forever() and t < p.activePeriod.getEnd() and t < et):
+                    t += p.period
+                    if p.getCurrency() not in self.pbal:
+                        self.pbal[p.getCurrency()] = 0
+                    # print(f'c = {p.getCurrency()}')
+                    # print(f'a = {p.getAmount().getAmount()}')
+                    self.pbal[p.getCurrency()] += p.getAmount().getAmount()
+                    # print(self.pbal)
+                    # for ob in self.pbal.items():
+                    #     print(ob)
+        # self.account.balance = self.pbal
         return self
+
+
+# test if two values are equal within a margin of error
+def epsilon(a, b, e):
+    return abs(a - b) < e
 
 
 if __name__ == "__main__":
@@ -372,7 +426,7 @@ if __name__ == "__main__":
     amount2 += 25
     assert amount1.a == 200
     assert amount2.a == 125
-    assert amount2.amount() == 125
+    assert amount2.getAmount() == 125
     assert amount2.currency() == 'USD'
     print(f"finished testing [{current_test}]\n")
 
@@ -467,14 +521,14 @@ if __name__ == "__main__":
 
     current_test = "buying an item using a savings account"
     print(f"testing [{current_test}]")
-    acc1 = SavingAccount('USD')
-    acc2 = SavingAccount('USD', 4500)
-    assert acc1.getBalance() == 0
-    assert acc2.getBalance() < 5000
-    assert acc2.getBalance() < Amount(10000.70, 'USD')
+    acc1 = SavingAccount(0, 'USD')
+    acc2 = SavingAccount(4500, 'USD')
+    assert acc1.getBalance('USD') == 0
+    assert acc2.getBalance('USD') < 5000
+    assert acc2.getBalance('USD') < Amount(10000.70, 'USD')
     acc1.deposit(450)
-    assert acc1.getBalance() == 450
-    assert acc2.getBalance() - acc1.getBalance() > 0
+    assert acc1.getBalance('USD') == 450
+    assert acc2.getBalance('USD') - acc1.getBalance('USD') > 0
     print(f"finished testing [{current_test}]\n")
 
     #
@@ -483,11 +537,11 @@ if __name__ == "__main__":
 
     current_test = "saving account projections"
     print(f"testing [{current_test}]")
-    acc1 = SavingAccount('USD')
-    acc2 = SavingAccount('USD', 4500)
-    i1 = MonthlyIncome(Amount('USD', 1200))
-    i2 = MonthlyIncome(Amount('USD', 1750.50))
-    assert acc1.getBalance() == 0
+    acc1 = SavingAccount(0, 'USD')
+    acc2 = SavingAccount(4500, 'USD')
+    i1 = MonthlyIncome(Amount(1200, 'USD'))
+    i2 = MonthlyIncome(Amount(1750.50, 'USD'))
+    assert acc1.getBalance('USD') == 0
     print(f"finished testing [{current_test}]\n")
 
     #
@@ -496,12 +550,53 @@ if __name__ == "__main__":
 
     current_test = "saving account projections (advanced)"
     print(f"testing [{current_test}]")
-    acc1 = ProjectableAccount(SavingAccount('USD'))
-    acc2 = ProjectableAccount(SavingAccount('USD', 4500))
-    i3 = MonthlyIncome(Amount('USD', 600), None, TimePeriod(pendulum.today(), pendulum.today().add(months=1)))
-    acc1.addIncome(i1)
-    # val = acc1.project(pendulum.today().add(months=1)).getBalance() == 600
-    assert acc1.project(pendulum.today().add(months=1)).getBalance() == 600
+    acc1 = ProjectableAccount(SavingAccount(0, 'USD'))
+    acc2 = ProjectableAccount(SavingAccount(4500, 'USD'))
+    i3 = MonthlyIncome(Amount(600, 'USD'), None, TimePeriod(pendulum.today(), pendulum.today().add(months=1)))
+    acc1.addIncome(i3)
+    assert acc1.getBalance('USD') == 0
+    assert acc2.getBalance('USD') == 4500
+    assert acc1.project(pendulum.today().add(days=1)).getBalance('USD') == 0 ### says 600
+    assert acc1.project(pendulum.today().add(months=1)).getBalance('USD') == 0 ### says 600
+    assert acc1.project(pendulum.today().add(months=1)).getProjectedBalance('USD') == 600
+    assert acc1.project(pendulum.today().add(months=3)).getProjectedBalance('USD') == 600
+    print(f"finished testing [{current_test}]\n")
+
+    #
+    ###
+    #
+
+    current_test = "saving account projections (advanced 2)"
+    print(f"testing [{current_test}]")
+    acc3 = ProjectableAccount(SavingAccount(400.50, 'USD'))
+    i4 = MonthlyIncome(Amount(900.50, 'USD'), None, TimePeriod(pendulum.today(), pendulum.today().add(months=8)))
+    acc3.addIncome(i4)
+    assert acc3.project(pendulum.today().add(months=3)).getProjectedBalance('USD') == (400.50 + (3 * 900.50))
+    print(f"finished testing [{current_test}]\n")
+
+    #
+    ###
+    #
+
+    current_test = "saving account projections (advanced 3)"
+    print(f"testing [{current_test}]")
+    for i in range(10):
+        if i % 10 == 0:
+            print(f'\t iter {i}')
+        acc4 = ProjectableAccount(SavingAccount(0, 'USD'))
+        import random
+        rl = list(random.randint(0, 145) / 200. for j in range(35))
+        assert len(rl) == 35
+        for n in rl:
+            i5 = MonthlyIncome(Amount(n, 'USD'), None, TimePeriod(pendulum.today()))
+            acc4.addIncome(i5)
+        assert epsilon( acc4.project(pendulum.today().add(years=5)).getProjectedBalance('USD'), sum(rl) * 12. * 5., .0001)
+        for n in rl[:10]:
+            i5 = MonthlyIncome(CryptoAmount(n, 'ETH'), None, TimePeriod(pendulum.today()))
+            acc4.addIncome(i5)
+        assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('USD'), sum(rl) * 3., .0001)
+        assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('ETH'), sum(rl[:10]) * 3., .0001)
+        assert epsilon( acc4.project(pendulum.today().add(years=30)).getProjectedBalance('ETH'), sum(rl[:10]) * 12. * 30., .0001)
     print(f"finished testing [{current_test}]\n")
 
 
