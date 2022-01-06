@@ -450,111 +450,112 @@ class Account:
                 self.pbal[p.currency()] += p.getNumberAmount() * n
         return self
 
-    def faster2_project(self, et, t=None): # endtime
-        if t is None: # start from today
-                t = pendulum.today()
-        # tStart = t
+    def better_faster_project(self, et, t=None): # endtime
+        _t = t
+        if _t is None: # start from today
+            _t = pendulum.today()
         self.pbal = dict()
         self.pbal = copy.deepcopy(self.getBalance())
-        # m = list(map(lambda p: , self.projections))
         for p in self.projections:
-            # check for overlap
-            # if (p.getActivePeriod()[0] > et) or (p.getActivePeriod()[1] < et): # unneeded since we will check later
-            #     print('skipping projection')
-            #     continue
-
-            # xxx now we know there is some overlap, so we must find the first and last update times within the period
-            # find start
-            fu = p.getActivePeriod()[0]
-            if fu > et:
-                print('fu error: skipping projection')
-                continue
-            if fu < t: # move up the first update time
-                diff = t - fu
-                n_incr = diff.total_seconds() // p.getPeriod().total_seconds()
-                fu += (n_incr + 1) * p.getPeriod()
-                print(f'moved fu to {fu}')
-            # if fu > et:
-            #     print('fu error: skipping projection')
-            #     continue
-
-            # find end
-            # if lu is None:
-            #     lu = et
-            lu = fu
-            diff_lu = None
-            if p.getActivePeriod()[1] is None or (p.getActivePeriod()[1] is not None and p.getActivePeriod()[1] > et):
-                # go until hit et
-                diff_lu = et - fu
-            else:
-                #gu until hit ap[1]
-                diff_lu = p.getActivePeriod()[1] - fu
-            n_incr_lu = diff_lu.total_seconds() // p.getPeriod().total_seconds()
-            print(n_incr_lu)
-            lu += n_incr_lu * p.getPeriod()
-            # print(f'moved lu to {lu}')
-            # else:
-            # if lu < t:
-                # print('lu error: skipping projection')
-                # continue
-
-            # find the number of update periods that have elapsed
-            n = (lu - fu).total_seconds() // p.getPeriod().total_seconds()
-
-            # update balance
+            t = _t
+            n = 0
+            while t <= et and p.t_before_end(t):
+                if p.t_within(t):
+                    n += 1
+                t += p.period
             if p.currency() not in self.pbal:
                 self.pbal[p.currency()] = 0
-            self.pbal[p.currency()] += max(p.getNumberAmount() * n, 0)
-
+            self.pbal[p.currency()] += p.getNumberAmount() * n
         return self
 
-    # warning: fastest_project is far from accurate, but it is really fast
-    def fastest_project(self, et, t=None): # endtime
+    #
+    #
+    #
+    #
+
+    # def faster2_project(self, et, t=None): # endtime
+
+    #     if t is None: # start from today
+    #             t = pendulum.today()
+
+    #     self.pbal = dict()
+    #     self.pbal = copy.deepcopy(self.getBalance())
+    #     for p in self.projections:
+
+    #         fu = p.getActivePeriod()[0]
+    #         if fu > et:
+    #             print(' ^ fu error: skipping projection')
+    #             continue
+    #         if fu < t: # move up the first update time
+    #             diff = t - fu
+    #             n_incr = diff.total_seconds() // p.getPeriod().total_seconds()
+    #             fu += (n_incr + 1) * p.getPeriod()
+    #             print(f' + moved fu to {fu} ({diff.total_days()})')
+            
+    #         lu = fu
+    #         diff_lu = None
+    #         if p.getActivePeriod()[1] is not None and p.getActivePeriod()[1] < t:
+    #             print(' ^ lu error: skipping projection')
+    #             continue
+    #         if p.getActivePeriod()[1] is None or (p.getActivePeriod()[1] is not None and p.getActivePeriod()[1] > et):
+    #             diff_lu = et - fu
+    #         else:
+    #             diff_lu = p.getActivePeriod()[1] - fu
+    #         n_incr_lu = diff_lu.total_seconds() // p.getPeriod().total_seconds()
+    #         print(f' * n_incr_lu = {n_incr_lu} ({diff_lu.total_seconds() / p.getPeriod().total_seconds()})')
+    #         lu += n_incr_lu * p.getPeriod()
+    #         print(f' + moved lu to {lu} ({diff_lu.total_days()})')
+
+    #         n = (lu - fu).total_seconds() // p.getPeriod().total_seconds()
+
+    #         if p.currency() not in self.pbal:
+    #             self.pbal[p.currency()] = 0
+    #         self.pbal[p.currency()] += max(p.getNumberAmount() * (n + 1), 0)
+
+    #     return self
+
+
+    #
+    #
+    #
+    #
+
+    def faster2_project(self, et, t=None): # endtime
+
+        if t is None: # start from today
+                t = pendulum.today()
+
         self.pbal = dict()
         self.pbal = copy.deepcopy(self.getBalance())
         for p in self.projections:
-            # for each projection, iterate until hit end
-            if issubclass(type(p), PeriodicAmount):
-                
-                _t = t
-                if _t is None: # start from today
-                    _t = pendulum.today()
-                else:
-                    _t = max(_t, p.getActivePeriod()[0])
 
-                # if _t < p.getActivePeriod()[0]: # do not need equal sign
-                #     _t = p.getActivePeriod()[0]
-                
-                _et = et
-                if p.getActivePeriod()[1] is not None and p.getActivePeriod()[1] < _et: # do not need equal sign
-                    _et = p.getActivePeriod()[1]
-                # else:
-                #     _et = min(_et, p.getActivePeriod()[1])
+            # skips
+            if p.getActivePeriod()[0] > et or ( p.getActivePeriod()[1] is not None and p.getActivePeriod()[1] < t ):
+                continue
 
-                if p.currency() not in self.pbal:
-                    self.pbal[p.currency()] = 0
-                n = ( (_et - _t).total_seconds() // p.getPeriod().total_seconds() )
-                print(f'n = {n}')
-                print(f'--n = {(_et - _t).total_seconds() / p.getPeriod().total_seconds()}')
-                self.pbal[p.currency()] += max(0, p.getNumberAmount() * n)
-        
+            fu = p.getActivePeriod()[0]
+            while fu < t:
+                fu += p.getPeriod()
+
+            lu = et
+            if p.getActivePeriod()[1] is not None and p.getActivePeriod()[1] < et:
+                lu = p.getActivePeriod()[1]
+            # if p.getActivePeriod()[1] is None:
+            #     lu = et
+            # elif:
+
+            # while p.t_within(lu) and lu < et:
+            #     lu += p.getPeriod()
+
+            n = (lu - fu).total_seconds() / p.getPeriod().total_seconds()
+
+            # print(f'  n = {n}')
+
+            if p.currency() not in self.pbal:
+                self.pbal[p.currency()] = 0
+            self.pbal[p.currency()] += max(p.getNumberAmount() * int(n + 1), 0)
+
         return self
-
-                # seconds = p.getPeriod().total_seconds()
-                # print(seconds)
-                # dur = et - max(p.getActivePeriod()[0], t)
-                # print(dur)
-                # print(dur.total_seconds())
-                # print(p.period.total_seconds())
-                # print(dur.total_seconds() // p.period.total_seconds())
-                # n = (et - max(p.getActivePeriod()[0], t)).total_seconds() // p.period.total_seconds()
-                # print(n)
-                # self.pbal[p.currency()] += p.getNumberAmount() * ( (et - t).total_seconds() // p.period.total_seconds() )
-                # self.pbal[p.currency()] += p.getNumberAmount() * ( (min(p.getActivePeriod()[1], et) - max(p.getActivePeriod()[0], t)).total_seconds() // p.period.total_seconds() )
-                # dt1 = pendulum.datetime(p.getActivePeriod()[0].)
-                # print(dt1)
-                # dt1 = pendulum.datetime(max(p.getActivePeriod()[0], t))
-                # n = dt1.diff(p.getActivePeriod()[1]) // p.period
 
 
 # test if two values are equal within a margin of error
@@ -564,7 +565,9 @@ def epsilon(a, b, e):
 
 if __name__ == "__main__":
 
+    print()
     print("testing")
+    print()
 
     ##
 
@@ -673,27 +676,6 @@ if __name__ == "__main__":
     ###
     #
 
-    # current_test = "time periods (timeperiod class)"
-    # print(f"testing [{current_test}]")
-    # # print(pendulum.now())
-    # assert type(pendulum.now()) is not type("")
-    # tp1 = TimePeriod(pendulum.today(), None)
-    # tp2 = TimePeriod(pendulum.today(), pendulum.today().add(days=1))
-    # # print(f'tp1: {tp1}')
-    # # print(f'tp2: {tp2}')
-    # assert tp1.isActive() is True
-    # assert tp2.isActive() is True
-    # assert tp1.isActive(pendulum.today().add(seconds=2)) is True
-    # assert tp1.isActive(pendulum.today().add(days=2)) is True
-    # assert tp2.isActive(pendulum.today().add(weeks=2)) is False
-    # tp2.extendTo(tp2.getEnd().add(weeks=3))
-    # assert tp2.isActive(pendulum.today().add(weeks=2)) is True
-    # print(f"finished testing [{current_test}]\n")
-
-    # #
-    # ###
-    # #
-
     current_test = "buying an item using a savings account"
     print(f"testing [{current_test}]")
     acc1 = Account()
@@ -796,215 +778,50 @@ if __name__ == "__main__":
     ###
     #
 
-    # current_test = "saving account projections (advanced 3)"
-    # print(f"testing [{current_test}]")
-    # for i in range(10):
-    #     if i % 10 == 0:
-    #         print(f'\t iter {i}')
-    #     acc4 = Account()
-    #     import random
-    #     rl = list(random.randint(0, 145) / 200. for j in range(35))
-    #     assert len(rl) == 35
-    #     for n in rl:
-    #         i5 = PeriodicAmount(Amount(n, 'USD'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
-    #         acc4.addProjection(i5)
-    #     assert epsilon( acc4.project(pendulum.today().add(years=5)).getProjectedBalance('USD'), sum(rl) * 12. * 5., .0001)
-    #     for n in rl[:10]:
-    #         i5 = PeriodicAmount(Amount(n, 'ETH'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
-    #         acc4.addProjection(i5)
-    #     assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('USD'), sum(rl) * 3., .0001)
-    #     assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('ETH'), sum(rl[:10]) * 3., .0001)
-    #     assert epsilon( acc4.project(pendulum.today().add(years=30)).getProjectedBalance('ETH'), sum(rl[:10]) * 12. * 30., .0001)
-    # print(f"finished testing [{current_test}]\n")
-
-    #
-    ##
-    #
-
-    # current_test = "saving account faster projections"
-    # print(f"testing [{current_test}]")
-    # acc3 = Account()
-    # acc4 = Account()
-    # i4 = PeriodicAmount(Amount(1, 'USD'), None, (pendulum.tomorrow(), pendulum.today().add(months=5)), pendulum.duration(months=1))
-    # acc3.addProjection(i4)
-    # acc4.addProjection(i4)
-
-    # print ('value should be 0')
-    # val1 = acc3.project(pendulum.today().add(days=2)).getProjectedBalance('USD')
-    # val2 = acc4.faster_project(pendulum.today().add(days=2)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 0
-    # assert val1 == val2
-
-    # print ('value should be 0')
-    # val1 = acc3.project(pendulum.today().add(months=1)).getProjectedBalance('USD')
-    # val2 = acc4.faster_project(pendulum.today().add(months=1)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 1
-    # assert val1 == val2
-
-    # print ('value should be 3')
-    # val1 = acc3.project(pendulum.today().add(months=3)).getProjectedBalance('USD')
-    # val2 = acc4.faster_project(pendulum.today().add(months=3)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 3
-    # assert val1 == val2
-
-    # print ('value should be 5')
-    # val1 = acc3.project(pendulum.today().add(months=8)).getProjectedBalance('USD')
-    # val2 = acc4.faster_project(pendulum.today().add(months=8)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 5
-    # assert val1 == val2
-    # print(f"finished testing [{current_test}]\n")
-
-    #
-    ##
-    #
-
     current_test = "saving account faster2! projections"
     print(f"testing [{current_test}]")
-    acc3 = Account()
-    acc4 = Account()
-    i4 = PeriodicAmount(Amount(1, 'USD'), None, (pendulum.today(), pendulum.today().add(months=5)), pendulum.duration(months=1))
-    acc3.addProjection(i4)
-    acc4.addProjection(i4)
+    acc1 = Account()
+    i1 = PeriodicAmount(Amount(1, 'USD'), None, (pendulum.today(), pendulum.today().add(months=5)), pendulum.duration(months=1))
+    acc1.addProjection(i1)
 
-    assert acc4.project(pendulum.today().add(days=2)).getProjectedBalance('USD') == 1
-    assert acc4.faster2_project(pendulum.today().add(days=2)).getProjectedBalance('USD') == 1
+    # print(' - testing outside range')
+    acc1.better_faster_project( pendulum.today().subtract(days=5), pendulum.today().subtract(days=7) )
+    assert acc1.getProjectedBalance('USD') == 0
 
-    assert acc4.project(pendulum.today().add(months=2)).getProjectedBalance('USD') == 2
-    assert acc4.faster2_project(pendulum.today().add(months=2)).getProjectedBalance('USD') == 2
+    acc1.better_faster_project( pendulum.today() )
+    assert acc1.getProjectedBalance('USD') == 1
+
+    acc1.better_faster_project( pendulum.tomorrow() )
+    assert acc1.getProjectedBalance('USD') == 1
+
+    acc1.better_faster_project( pendulum.today().add(months=1) )
+    assert acc1.getProjectedBalance('USD') == 2
+
+    acc1.better_faster_project( pendulum.today().add(months=1, days=1) )
+    assert acc1.getProjectedBalance('USD') == 2
+
+    acc1.faster_project( pendulum.today().add(months=2) )
+    assert acc1.getProjectedBalance('USD') == 3
+
+    acc1.better_faster_project( pendulum.today().add(months=2) )
+    assert acc1.getProjectedBalance('USD') == 3
+
+    acc1.better_faster_project( pendulum.today().add(months=2, days=1) )
+    assert acc1.getProjectedBalance('USD') == 3
+
     print(f"finished testing [{current_test}]\n")
 
     #
     ##
     #
 
-    # current_test = "saving account faster2! projections"
-    # print(f"testing [{current_test}]")
-    # acc3 = Account()
-    # acc4 = Account()
-    # i4 = PeriodicAmount(Amount(1, 'USD'), None, (pendulum.tomorrow(), pendulum.today().add(months=5)), pendulum.duration(months=1))
-    # acc3.addProjection(i4)
-    # acc4.addProjection(i4)
-
-    # print ('value should be 0')
-    # val1 = acc3.project(pendulum.today().add(days=2)).getProjectedBalance('USD')
-    # val2 = acc4.faster2_project(pendulum.today().add(days=2)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 0
-    # assert val1 == val2
-
-    # print ('value should be 0')
-    # val1 = acc3.project(pendulum.today().add(months=1)).getProjectedBalance('USD')
-    # val2 = acc4.faster2_project(pendulum.today().add(months=1)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 1
-    # assert val1 == val2
-
-    # print ('value should be 3')
-    # val1 = acc3.project(pendulum.today().add(months=3)).getProjectedBalance('USD')
-    # val2 = acc4.faster2_project(pendulum.today().add(months=3)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 3
-    # assert val1 == val2
-
-    # print ('value should be 5')
-    # val1 = acc3.project(pendulum.today().add(months=8)).getProjectedBalance('USD')
-    # val2 = acc4.faster2_project(pendulum.today().add(months=8)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 5
-    # assert val1 == val2
-    # print(f"finished testing [{current_test}]\n")
-
     exit()
-
-    # current_test = "saving account faster projections (time vs regular projections)"
-    
-    # print(f"testing [{current_test}]")
-    # from datetime import datetime
-    # start_time = datetime.now()
-    # for i in range(20):
-    #     if i % 10 == 0:
-    #         print(f'\t iter {i}')
-    #     acc4 = Account()
-    #     import random
-    #     rl = list(random.randint(0, 145) / 200. for j in range(35))
-    #     assert len(rl) == 35
-    #     for n in rl:
-    #         i5 = PeriodicAmount(Amount(n, 'USD'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
-    #         acc4.addProjection(i5)
-    #     assert epsilon( acc4.project(pendulum.today().add(years=5)).getProjectedBalance('USD'), sum(rl) * 12. * 5., .0001)
-    #     for n in rl[:10]:
-    #         i5 = PeriodicAmount(Amount(n, 'ETH'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
-    #         acc4.addProjection(i5)
-    #     assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('USD'), sum(rl) * 3., .0001)
-    #     assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('ETH'), sum(rl[:10]) * 3., .0001)
-    #     assert epsilon( acc4.project(pendulum.today().add(years=30)).getProjectedBalance('ETH'), sum(rl[:10]) * 12. * 30., .0001)
-    # end_time = datetime.now()
-    # t1 = end_time - start_time
-    # start_time = datetime.now()
-    # for i in range(20):
-    #     if i % 10 == 0:
-    #         print(f'\t iter {i}')
-    #     acc4 = Account()
-    #     import random
-    #     rl = list(random.randint(0, 145) / 200. for j in range(35))
-    #     assert len(rl) == 35
-    #     for n in rl:
-    #         i5 = PeriodicAmount(Amount(n, 'USD'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
-    #         acc4.addProjection(i5)
-    #     assert epsilon( acc4.project(pendulum.today().add(years=5)).getProjectedBalance('USD'), sum(rl) * 12. * 5., .0001)
-    #     for n in rl[:10]:
-    #         i5 = PeriodicAmount(Amount(n, 'ETH'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
-    #         acc4.addProjection(i5)
-    #     assert epsilon( acc4.faster_project(pendulum.today().add(months=3)).getProjectedBalance('USD'), sum(rl) * 3., .0001)
-    #     assert epsilon( acc4.faster_project(pendulum.today().add(months=3)).getProjectedBalance('ETH'), sum(rl[:10]) * 3., .0001)
-    #     assert epsilon( acc4.faster_project(pendulum.today().add(years=30)).getProjectedBalance('ETH'), sum(rl[:10]) * 12. * 30., .0001)
-    # end_time = datetime.now()
-    # t2 = end_time - start_time
-    # print(f'{t1} vs. {t2}')
-    # assert t1 > t2
-    # print(f"finished testing [{current_test}]\n")
-
-    #
-    ##
-    #
 
     current_test = "saving account faster2! projections (time vs regular projections)"
     
     print(f"testing [{current_test}]")
     from datetime import datetime
-    # start_time = datetime.now()
-    # for i in range(20):
-    #     if i % 10 == 0:
-    #         print(f'\t iter {i}')
-    #     acc4 = Account()
-    #     import random
-    #     rl = list(random.randint(0, 145) / 200. for j in range(35))
-    #     assert len(rl) == 35
-    #     for n in rl:
-    #         i5 = PeriodicAmount(Amount(n, 'USD'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
-    #         acc4.addProjection(i5)
-    #     assert epsilon( acc4.project(pendulum.today().add(years=5)).getProjectedBalance('USD'), sum(rl) * 12. * 5., .0001)
-    #     for n in rl[:10]:
-    #         i5 = PeriodicAmount(Amount(n, 'ETH'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
-    #         acc4.addProjection(i5)
-    #     assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('USD'), sum(rl) * 3., .0001)
-    #     assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('ETH'), sum(rl[:10]) * 3., .0001)
-    #     assert epsilon( acc4.project(pendulum.today().add(years=30)).getProjectedBalance('ETH'), sum(rl[:10]) * 12. * 30., .0001)
-    # end_time = datetime.now()
-    # t1 = end_time - start_time
-    # start_time = datetime.now()
+    start_time = datetime.now()
     for i in range(20):
         if i % 10 == 0:
             print(f'\t iter {i}')
@@ -1019,116 +836,35 @@ if __name__ == "__main__":
         for n in rl[:10]:
             i5 = PeriodicAmount(Amount(n, 'ETH'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
             acc4.addProjection(i5)
-        assert epsilon( acc4.faster2_project(pendulum.today().add(months=3)).getProjectedBalance('USD'), sum(rl) * 3., .0001)
-        assert epsilon( acc4.faster2_project(pendulum.today().add(months=3)).getProjectedBalance('ETH'), sum(rl[:10]) * 3., .0001)
-        assert epsilon( acc4.faster2_project(pendulum.today().add(years=30)).getProjectedBalance('ETH'), sum(rl[:10]) * 12. * 30., .0001)
+        assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('USD'), sum(rl) * 3., .0001)
+        assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('ETH'), sum(rl[:10]) * 3., .0001)
+        assert epsilon( acc4.project(pendulum.today().add(years=30)).getProjectedBalance('ETH'), sum(rl[:10]) * 12. * 30., .0001)
+    end_time = datetime.now()
+    t1 = end_time - start_time
+    start_time = datetime.now()
+    for i in range(20):
+        if i % 10 == 0:
+            print(f'\t iter {i}')
+        acc4 = Account()
+        import random
+        rl = list(random.randint(0, 145) / 200. for j in range(35))
+        assert len(rl) == 35
+        for n in rl:
+            i5 = PeriodicAmount(Amount(n, 'USD'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
+            acc4.addProjection(i5)
+        assert epsilon( acc4.project(pendulum.today().add(years=5)).getProjectedBalance('USD'), sum(rl) * 12. * 5., .0001)
+        for n in rl[:10]:
+            i5 = PeriodicAmount(Amount(n, 'ETH'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
+            acc4.addProjection(i5)
+        assert epsilon( acc4.better_faster_project(pendulum.today().add(months=3)).getProjectedBalance('USD'), sum(rl) * 3., .0001)
+        assert epsilon( acc4.better_faster_project(pendulum.today().add(months=3)).getProjectedBalance('ETH'), sum(rl[:10]) * 3., .0001)
+        assert epsilon( acc4.better_faster_project(pendulum.today().add(years=30)).getProjectedBalance('ETH'), sum(rl[:10]) * 12. * 30., .0001)
     end_time = datetime.now()
     t2 = end_time - start_time
     print(f'{t1} vs. {t2}')
     assert t1 > t2
     print(f"finished testing [{current_test}]\n")
 
-    # current_test = "saving account fastest projections"
-    # print(f"testing [{current_test}]")
-    # acc3 = Account()
-    # acc4 = Account()
-    # i4 = PeriodicAmount(Amount(1, 'USD'), None, (pendulum.tomorrow(), pendulum.today().add(months=5)), pendulum.duration(months=1))
-    # acc3.addProjection(i4)
-    # acc4.addProjection(i4)
-
-    # print ('value should be 0')
-    # val1 = acc3.project(pendulum.today().add(days=2)).getProjectedBalance('USD')
-    # val2 = acc4.fastest_project(pendulum.today().add(days=2)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 0
-    # assert val1 == val2
-
-    # print ('value should be 0')
-    # val1 = acc3.project(pendulum.today().add(days=20)).getProjectedBalance('USD')
-    # val2 = acc4.fastest_project(pendulum.today().add(days=20)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 0
-    # assert val1 == val2
-
-    # print ('value should be 0')
-    # val1 = acc3.project(pendulum.today().add(months=1)).getProjectedBalance('USD')
-    # val2 = acc4.fastest_project(pendulum.today().add(months=1)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 1
-    # assert val1 == val2
-
-    # print ('value should be 2')
-    # val1 = acc3.project(pendulum.today().add(months=2)).getProjectedBalance('USD')
-    # val2 = acc4.fastest_project(pendulum.today().add(months=2)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 2
-    # assert val1 == val2
-
-    # print ('value should be 3')
-    # val1 = acc3.project(pendulum.today().add(months=3)).getProjectedBalance('USD')
-    # val2 = acc4.fastest_project(pendulum.today().add(months=3)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 3
-    # assert val1 == val2
-
-    # print ('value should be 5')
-    # val1 = acc3.project(pendulum.today().add(months=8)).getProjectedBalance('USD')
-    # val2 = acc4.fastest_project(pendulum.today().add(months=8)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 5
-    # assert val1 == val2
-    # print(f"finished testing [{current_test}]\n")
-
     #
     ##
     #
-
-    # current_test = "saving account fastest projections (2)"
-    # print(f"testing [{current_test}]")
-    # acc3 = Account(400.50, 'USD')
-    # i4 = PeriodicAmount(Amount(900.50, 'USD'), None, (pendulum.tomorrow(), pendulum.today().add(months=8)), pendulum.duration(months=1))
-    # acc3.addProjection(i4)
-    # val1 = acc3.project(pendulum.today().add(months=3)).getProjectedBalance('USD')
-    # val2 = acc3.fastest_project(pendulum.today().add(months=3)).getProjectedBalance('USD')
-    # print( val1 )
-    # print( val2 )
-    # assert val1 == 3102
-    # assert val1 == val2
-    # print(f"finished testing [{current_test}]\n")
-
-    #
-    ###
-    #
-
-    # exit()
-
-    # current_test = "saving account fast projections (advanced)"
-    # print(f"testing [{current_test}]")
-    # for i in range(10):
-    #     if i % 10 == 0:
-    #         print(f'\t iter {i}')
-    #     acc4 = Account()
-    #     import random
-    #     rl = list(random.randint(0, 145) / 200. for j in range(35))
-    #     assert len(rl) == 35
-    #     for n in rl:
-    #         i5 = PeriodicAmount(Amount(n, 'USD'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
-    #         acc4.addProjection(i5)
-    #     assert epsilon( acc4.project(pendulum.today().add(years=5)).getProjectedBalance('USD'), sum(rl) * 12. * 5., .0001)
-    #     for n in rl[:10]:
-    #         i5 = PeriodicAmount(Amount(n, 'ETH'), None, (pendulum.tomorrow(), None), pendulum.duration(months=1))
-    #         acc4.addProjection(i5)
-    #     assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('USD'), sum(rl) * 3., .0001)
-    #     assert epsilon( acc4.project(pendulum.today().add(months=3)).getProjectedBalance('ETH'), sum(rl[:10]) * 3., .0001)
-    #     assert epsilon( acc4.project(pendulum.today().add(years=30)).getProjectedBalance('ETH'), sum(rl[:10]) * 12. * 30., .0001)
-    # print(f"finished testing [{current_test}]\n")
-
-
-    # l = TransactionLogger()
-    # l.export('log.json')
