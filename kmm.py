@@ -319,6 +319,7 @@ class MonthlyExpense:
         self.entity = e
         self.period = p
 
+
 class SavingAccount:
     def __init__(self, ib = 0, t='USD'):
         self.t = t
@@ -380,20 +381,11 @@ class ProjectableAccount:
             # for each projection, iterate until hit end
             if issubclass(type(p), PeriodicIncome):
                 t = pendulum.today()
-                # print(self.pbal)
-                # for ob in self.pbal.items():
-                #     print(ob)
                 while (p.forever() and t < et) or (not p.forever() and t < p.activePeriod.getEnd() and t < et):
                     t += p.period
                     if p.getCurrency() not in self.pbal:
                         self.pbal[p.getCurrency()] = 0
-                    # print(f'c = {p.getCurrency()}')
-                    # print(f'a = {p.getAmount().getAmount()}')
                     self.pbal[p.getCurrency()] += p.getAmount().getAmount()
-                    # print(self.pbal)
-                    # for ob in self.pbal.items():
-                    #     print(ob)
-        # self.account.balance = self.pbal
         return self
 
 
@@ -403,6 +395,8 @@ def epsilon(a, b, e):
 
 
 if __name__ == "__main__":
+
+    print("testing")
 
     ##
 
