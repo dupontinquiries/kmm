@@ -457,13 +457,11 @@ class Account:
             fu = p.getActivePeriod()[0]
 
             while fu < t:
-                # print(f'    fu -> {fu}')
                 fu += p.getPeriod()
             
             lu = fu + p.getPeriod()
 
             while p.t_before_end(lu) and lu <= et:
-                # print(f'    lu -> {lu}')
                 lu += p.getPeriod()
 
             n += (lu - fu).total_seconds() / p.getPeriod().total_seconds()
@@ -471,51 +469,6 @@ class Account:
             if p.currency() not in self.pbal:
                 self.pbal[p.currency()] = 0
             self.pbal[p.currency()] += p.getNumberAmount() * int(n)
-
-            # print(f' + n: {n}')
-            # print(f' - start: {fu}, end: {lu}')
-            # print(f' - pbal: {self.pbal}')
-
-        return self
-
-    def project_threaded_helper(self, et, t, p):
-
-        n = 0
-
-        fu = p.getActivePeriod()[0]
-
-        while fu < t:
-            # print(f'    fu -> {fu}')
-            fu += p.getPeriod()
-        
-        lu = fu + p.getPeriod()
-
-        while p.t_before_end(lu) and lu <= et:
-            # print(f'    lu -> {lu}')
-            lu += p.getPeriod()
-
-        n += (lu - fu).total_seconds() / p.getPeriod().total_seconds()
-
-        if p.currency() not in self.pbal:
-            self.pbal[p.currency()] = 0
-        self.pbal[p.currency()] += p.getNumberAmount() * int(n)
-
-
-    def project_threaded(self, et, t=None):
-
-        import concurrent.futures
-
-        if t is None:
-            t = pendulum.today()
-
-        self.pbal = dict()
-        for k, v in self.balance.items():
-            self.pbal[k] = v
-
-        executor = concurrent.futures.ProcessPoolExecutor(6)
-        futures = [executor.submit(self.project_threaded_helper, self, et, t, p)
-                   for p in self.projections]
-        concurrent.futures.wait(futures)
 
         return self
 
@@ -643,8 +596,8 @@ if __name__ == "__main__":
     print(f"testing [{current_test}]")
 
     from datetime import datetime
-    n_iter = 5
-    n_size = 200
+    n_iter = 10
+    n_size = 2000
     start_time = datetime.now()
     for i in range(n_iter):
         if i % 10 == 0:
